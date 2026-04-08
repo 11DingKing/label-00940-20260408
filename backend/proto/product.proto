@@ -1,0 +1,110 @@
+syntax = "proto3";
+
+package product;
+
+option php_namespace = "Grpc\\Product";
+option php_metadata_namespace = "GPBMetadata";
+
+service ProductService {
+    rpc GetProductList(ProductListRequest) returns (ProductListResponse);
+    rpc GetProductDetail(ProductDetailRequest) returns (ProductResponse);
+    rpc CreateProduct(CreateProductRequest) returns (ProductResponse);
+    rpc UpdateProduct(UpdateProductRequest) returns (ProductResponse);
+    rpc DeleteProduct(DeleteProductRequest) returns (BaseResponse);
+    rpc GetCategoryList(CategoryListRequest) returns (CategoryListResponse);
+    rpc BatchGetProducts(BatchGetProductsRequest) returns (BatchGetProductsResponse);
+}
+
+message ProductListRequest {
+    int32 page = 1;
+    int32 page_size = 2;
+    int64 category_id = 3;
+    string keyword = 4;
+    int32 status = 5;
+}
+
+message ProductListResponse {
+    int32 code = 1;
+    string message = 2;
+    repeated ProductInfo list = 3;
+    int64 total = 4;
+}
+
+message ProductDetailRequest {
+    int64 product_id = 1;
+}
+
+message ProductResponse {
+    int32 code = 1;
+    string message = 2;
+    ProductInfo product = 3;
+}
+
+message CreateProductRequest {
+    string name = 1;
+    string description = 2;
+    string price = 3;
+    string image = 4;
+    int64 category_id = 5;
+    int32 stock = 6;
+}
+
+message UpdateProductRequest {
+    int64 product_id = 1;
+    string name = 2;
+    string description = 3;
+    string price = 4;
+    string image = 5;
+    int64 category_id = 6;
+    int32 status = 7;
+}
+
+message DeleteProductRequest {
+    int64 product_id = 1;
+}
+
+message CategoryListRequest {
+    int64 parent_id = 1;
+}
+
+message CategoryListResponse {
+    int32 code = 1;
+    string message = 2;
+    repeated CategoryInfo list = 3;
+}
+
+message BatchGetProductsRequest {
+    repeated int64 product_ids = 1;
+}
+
+message BatchGetProductsResponse {
+    int32 code = 1;
+    string message = 2;
+    repeated ProductInfo list = 3;
+}
+
+message ProductInfo {
+    int64 id = 1;
+    string name = 2;
+    string description = 3;
+    string price = 4;
+    string image = 5;
+    int64 category_id = 6;
+    string category_name = 7;
+    int32 status = 8;
+    int32 stock = 9;
+    string created_at = 10;
+}
+
+message CategoryInfo {
+    int64 id = 1;
+    string name = 2;
+    int64 parent_id = 3;
+    int32 sort = 4;
+    repeated CategoryInfo children = 5;
+}
+
+message BaseResponse {
+    int32 code = 1;
+    string message = 2;
+}

@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+package inventory;
+
+option php_namespace = "Grpc\\Inventory";
+option php_metadata_namespace = "GPBMetadata";
+
+service InventoryService {
+    rpc GetStock(GetStockRequest) returns (StockResponse);
+    rpc UpdateStock(UpdateStockRequest) returns (StockResponse);
+    rpc LockStock(LockStockRequest) returns (BaseResponse);
+    rpc UnlockStock(UnlockStockRequest) returns (BaseResponse);
+    rpc DeductStock(DeductStockRequest) returns (BaseResponse);
+    rpc BatchGetStock(BatchGetStockRequest) returns (BatchStockResponse);
+}
+
+message GetStockRequest {
+    int64 product_id = 1;
+}
+
+message StockResponse {
+    int32 code = 1;
+    string message = 2;
+    StockInfo stock = 3;
+}
+
+message UpdateStockRequest {
+    int64 product_id = 1;
+    int32 stock = 2;
+}
+
+message LockStockRequest {
+    repeated StockItem items = 1;
+    string order_no = 2;
+}
+
+message UnlockStockRequest {
+    repeated StockItem items = 1;
+    string order_no = 2;
+}
+
+message DeductStockRequest {
+    repeated StockItem items = 1;
+    string order_no = 2;
+}
+
+message StockItem {
+    int64 product_id = 1;
+    int32 quantity = 2;
+}
+
+message BatchGetStockRequest {
+    repeated int64 product_ids = 1;
+}
+
+message BatchStockResponse {
+    int32 code = 1;
+    string message = 2;
+    repeated StockInfo list = 3;
+}
+
+message StockInfo {
+    int64 product_id = 1;
+    int32 stock = 2;
+    int32 locked_stock = 3;
+    int32 available_stock = 4;
+}
+
+message BaseResponse {
+    int32 code = 1;
+    string message = 2;
+}

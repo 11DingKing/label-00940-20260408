@@ -1,0 +1,53 @@
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# PHP
+/vendor/
+composer.lock
+*.phar
+
+# Hyperf
+/runtime/
+.env
+
+# Node (if any frontend added later)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Docker
+.docker/
+
+# Logs
+*.log
+logs/
+
+# Cache
+.cache/
+*.cache
+
+# Build
+/build/
+/dist/
+
+# Test
+/coverage/
+.phpunit.result.cache
+
+# Backend services
+backend/*/vendor/
+backend/*/runtime/
+backend/*/.env
+backend/*/.phpunit.result.cache
+
+# Temporary files
+*.tmp
+*.temp

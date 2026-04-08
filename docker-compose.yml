@@ -1,0 +1,273 @@
+services:
+  # Nacos 服务注册与发现 (支持 x86/ARM64 多平台)
+  nacos:
+    image: nacos/nacos-server:v2.2.3-slim
+    container_name: ecommerce-nacos
+    environment:
+      - MODE=standalone
+      - PREFER_HOST_MODE=hostname
+      - JVM_XMS=256m
+      - JVM_XMX=256m
+      - NACOS_AUTH_ENABLE=false
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+    volumes:
+      - nacos_data:/home/nacos/data
+    networks:
+      - ecommerce-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8848/nacos/v1/console/health/readiness"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 60s
+
+  # MySQL 数据库
+  mysql:
+    image: mysql:8.0
+    container_name: ecommerce-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123456}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-ecommerce}
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/schema.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    networks:
+      - ecommerce-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-root123456}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: ecommerce-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ecommerce-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Gateway Service
+  gateway-service:
+    build:
+      context: ./backend/gateway-service
+      dockerfile: Dockerfile
+    container_name: ecommerce-gateway
+    environment:
+      - APP_NAME=gateway-service
+      - APP_ENV=${APP_ENV:-dev}
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=${MYSQL_DATABASE:-ecommerce}
+      - DB_USERNAME=root
+      - DB_PASSWORD=${MYSQL_ROOT_PASSWORD:-root123456}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET:-ecommerce-jwt-secret-key-2024}
+      - JWT_TTL=${JWT_TTL:-86400}
+      - USER_SERVICE_HOST=user-service
+      - USER_SERVICE_PORT=9502
+      - PRODUCT_SERVICE_HOST=product-service
+      - PRODUCT_SERVICE_PORT=9503
+      - ORDER_SERVICE_HOST=order-service
+      - ORDER_SERVICE_PORT=9504
+      - INVENTORY_SERVICE_HOST=inventory-service
+      - INVENTORY_SERVICE_PORT=9505
+      - NACOS_ENABLE=true
+      - NACOS_HOST=nacos
+      - NACOS_PORT=8848
+      - SERVICE_IP=gateway-service
+      - HTTP_PORT=9501
+    ports:
+      - "${GATEWAY_PORT:-8081}:9501"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+      product-service:
+        condition: service_started
+      order-service:
+        condition: service_started
+      inventory-service:
+        condition: service_started
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  # User Service
+  user-service:
+    build:
+      context: ./backend/user-service
+      dockerfile: Dockerfile
+    container_name: ecommerce-user
+    environment:
+      - APP_NAME=user-service
+      - APP_ENV=${APP_ENV:-dev}
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=${MYSQL_DATABASE:-ecommerce}
+      - DB_USERNAME=root
+      - DB_PASSWORD=${MYSQL_ROOT_PASSWORD:-root123456}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET:-ecommerce-jwt-secret-key-2024}
+      - JWT_TTL=${JWT_TTL:-86400}
+      - NACOS_ENABLE=true
+      - NACOS_HOST=nacos
+      - NACOS_PORT=8848
+      - SERVICE_IP=user-service
+      - GRPC_PORT=9502
+    ports:
+      - "9502:9502"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  # Product Service
+  product-service:
+    build:
+      context: ./backend/product-service
+      dockerfile: Dockerfile
+    container_name: ecommerce-product
+    environment:
+      - APP_NAME=product-service
+      - APP_ENV=${APP_ENV:-dev}
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=${MYSQL_DATABASE:-ecommerce}
+      - DB_USERNAME=root
+      - DB_PASSWORD=${MYSQL_ROOT_PASSWORD:-root123456}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - NACOS_ENABLE=true
+      - NACOS_HOST=nacos
+      - NACOS_PORT=8848
+      - SERVICE_IP=product-service
+      - GRPC_PORT=9503
+      - INVENTORY_SERVICE_HOST=inventory-service
+      - INVENTORY_SERVICE_PORT=9505
+    ports:
+      - "9503:9503"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+      inventory-service:
+        condition: service_started
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  # Order Service
+  order-service:
+    build:
+      context: ./backend/order-service
+      dockerfile: Dockerfile
+    container_name: ecommerce-order
+    environment:
+      - APP_NAME=order-service
+      - APP_ENV=${APP_ENV:-dev}
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=${MYSQL_DATABASE:-ecommerce}
+      - DB_USERNAME=root
+      - DB_PASSWORD=${MYSQL_ROOT_PASSWORD:-root123456}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - NACOS_ENABLE=true
+      - NACOS_HOST=nacos
+      - NACOS_PORT=8848
+      - SERVICE_IP=order-service
+      - GRPC_PORT=9504
+      - PRODUCT_SERVICE_HOST=product-service
+      - PRODUCT_SERVICE_PORT=9503
+      - INVENTORY_SERVICE_HOST=inventory-service
+      - INVENTORY_SERVICE_PORT=9505
+    ports:
+      - "9504:9504"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+      product-service:
+        condition: service_started
+      inventory-service:
+        condition: service_started
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  # Inventory Service
+  inventory-service:
+    build:
+      context: ./backend/inventory-service
+      dockerfile: Dockerfile
+    container_name: ecommerce-inventory
+    environment:
+      - APP_NAME=inventory-service
+      - APP_ENV=${APP_ENV:-dev}
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=${MYSQL_DATABASE:-ecommerce}
+      - DB_USERNAME=root
+      - DB_PASSWORD=${MYSQL_ROOT_PASSWORD:-root123456}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - NACOS_ENABLE=true
+      - NACOS_HOST=nacos
+      - NACOS_PORT=8848
+      - SERVICE_IP=inventory-service
+      - GRPC_PORT=9505
+    ports:
+      - "9505:9505"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+networks:
+  ecommerce-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data:
+  nacos_data:
