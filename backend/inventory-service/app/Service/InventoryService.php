@@ -131,8 +131,18 @@ class InventoryService
                     return ['code' => -1, 'message' => "商品 {$item['product_id']} 库存记录不存在"];
                 }
 
+                if ($inventory->stock < $item['quantity']) {
+                    Db::rollBack();
+                    return ['code' => -1, 'message' => "商品 {$item['product_id']} 库存不足"];
+                }
+
+                if ($inventory->locked_stock < $item['quantity']) {
+                    Db::rollBack();
+                    return ['code' => -1, 'message' => "商品 {$item['product_id']} 锁定库存不足"];
+                }
+
                 $inventory->stock -= $item['quantity'];
-                $inventory->locked_stock = max(0, $inventory->locked_stock - $item['quantity']);
+                $inventory->locked_stock -= $item['quantity'];
                 $inventory->save();
             }
 
